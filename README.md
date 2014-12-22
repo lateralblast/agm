@@ -44,6 +44,7 @@ Ruby Gems:
  - phantomjs
  - fileutils
  - terminal-table
+ - net/ping
 
  Usage
  =====
@@ -51,7 +52,7 @@ Ruby Gems:
  ```
 $ agm.rb -h
 
-Usage: agm.rb -[bdhlmorsvwg:u:p:]
+Usage: agm.rb -[bcdhlmorsvwg:u:p:t:]
 
 -V:	Display version information
 -h:	Display usage information
@@ -65,6 +66,8 @@ Usage: agm.rb -[bdhlmorsvwg:u:p:]
 -l:	Display System Logs
 -o:	Display Overview
 -r:	Reboot Gateway
+-c:	Check connectivity (reboots gateway is test site is down)
+-t:	Test address
 -m:	Mask values
 -v:	Verbose mode
 ```
@@ -109,6 +112,12 @@ Reboot gateway (default gateway address and saved username/password):
 
 ```
 $ agm.rb -r
+```
+
+Check gateway (default gateway address and saved username/password):
+
+```
+$ agm.rb -c
 ```
 
 Display broadband status (default gateway address and saved username/password):

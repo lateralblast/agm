@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #
 # Name:         agm (Automate Gateway Max)
-# Version:      0.0.1
+# Version:      0.0.2
 # Release:      1
 # License:      CC-BA (Creative Commons By Attribution)
 #               http://creativecommons.org/licenses/by/4.0/legalcode
@@ -22,16 +22,20 @@ require 'selenium-webdriver'
 require 'phantomjs'
 require 'fileutils'
 require 'terminal-table'
+require 'net/ping'
+
+include Net
 
 # Some defaults
 
 default_address = "192.168.1.254"
+test_address    = "google.com"
 $verbose        = 0
 $mask_values    = 0
 
 # Get command line options
 
-options = "bdhlmorsvwg:u:p:"
+options = "bcdhlmorsvwg:u:p:t:"
 
 # Print the version of the script
 
@@ -63,6 +67,8 @@ def print_usage(options)
   puts "-l:\tDisplay System Logs"
   puts "-o:\tDisplay Overview"
   puts "-r:\tReboot Gateway"
+  puts "-c:\tCheck connectivity (reboots gateway is test site is down)"
+  puts "-t:\tTest address"
   puts "-m:\tMask values"
 	puts "-v:\tVerbose mode"
 	puts
@@ -383,6 +389,24 @@ def mask_value(item,value)
   return value
 end
 
+# Check Gateway Max Connectivity
+
+def check_gwm(test_address,gwm_address,gwm_username,gwm_password)
+  Ping::TCP.service_check = true
+  test = Net::Ping::TCP.new(test_address)
+  if !test.ping?
+    if $verbose == 1
+      puts "Test address "+test_address+" is not responding, rebooting "+gwm_address
+    end
+    reboot_gwm(gwm_address,gwm_username,gwm_password)
+  else
+    if $verbose == 1
+      puts "Test address "+test_address+" is responding"
+    end
+  end
+  return
+end
+
 # Handle command line options
 
 begin
@@ -475,5 +499,14 @@ end
 
 if opt["o"]
   get_gwm_view(gwm_address,gwm_username,gwm_password)
+  exit
+end
+
+if opt["t"]
+  test_address = opt["t"]
+end
+
+if opt["c"]
+  check_gwm(test_address,gwm_address,gwm_username,gwm_password)
   exit
 end
