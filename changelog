@@ -3,3 +3,5 @@
 # Initial working features
 # 0.0.2: Mon 22 Dec 2014 16:36:53 AEDT
 # Added connectivity check
+# 0.0.3: Tue 10 Feb 2015 13:43:50 AEDT
+# Added password input masking

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #
 # Name:         agm (Automate Gateway Max)
-# Version:      0.0.2
+# Version:      0.0.3
 # Release:      1
 # License:      CC-BA (Creative Commons By Attribution)
 #               http://creativecommons.org/licenses/by/4.0/legalcode
@@ -23,6 +23,7 @@ require 'phantomjs'
 require 'fileutils'
 require 'terminal-table'
 require 'net/ping'
+require 'highline/import'
 
 include Net
 
@@ -80,12 +81,8 @@ end
 def get_gwm_details()
   gwm_passwd_file = Dir.home+"/.agmpasswd"
   if !File.exist?(gwm_passwd_file)
-    puts "Enter Gateway Username:"
-    STDOUT.flush
-    gwm_username = gets.chomp
-    puts "Enter Gateway Password:"
-    STDOUT.flush
-    gwm_password = gets.chomp
+    gwm_username = ask("Enter Gateway Username: ") { |q| }
+    gwm_password = ask("Enter Gateway Password: ") { |q| q.echo = false }
     create_gwm_passwd_file(gwm_username,gwm_password)
   else
     gwm_data = File.readlines(gwm_passwd_file)
@@ -114,7 +111,6 @@ def create_gwm_passwd_file(gwm_username,gwm_password)
   File.open(gwm_passwd_file, 'a') { |file| file.write(output_text) }
   output_text = "check-certificate=off\n"
   File.open(gwm_passwd_file, 'a') { |file| file.write(output_text) }
-  File.close(gwm_passwd_file)
   return
 end
 

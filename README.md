@@ -39,12 +39,13 @@ Ruby Gems:
 
  - rubygems
  - nokogiri
- - getopt/std
+ - getopt
  - selenium-webdriver
  - phantomjs
  - fileutils
  - terminal-table
- - net/ping
+ - net-ping
+ - highline
 
  Usage
  =====
