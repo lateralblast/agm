@@ -447,29 +447,122 @@ end
 # Get Gateway Max Broadband status 
 
 def get_gwm_broadband(gwm_address,gwm_username,gwm_password)
-  gwm_status = []
-  gwm_url    = "http://"+gwm_address+"/HngBroadbandBasicSettings.asp"
-  gwm_page   = get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
-  table = Terminal::Table.new :title => "Broadband Information", :headings => [ 'Item', 'Value' ]
-  doc   =  Nokogiri::HTML(gwm_page)
-  doc.css("tr").each do |node|
-    line = node.text
-    line = line.gsub(/^\s+/,"")
-    line = line.chomp
-    gwm_status.push(line)
+  gwm_status     = []
+  gwm_startup    = []
+  gwm_upstream   = []
+  gwm_downstream = []
+  row      = []
+  gwm_url  = "http://"+gwm_address+"/HngBroadbandBasicSettings.asp"
+  gwm_page = get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
+  if gwm_page.length < 100
+    gwm_url    = "http://"+gwm_address+"/HngConnectionSettings.asp"
+    gwm_page   = get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
   end
-  length = gwm_status.length
-  row    = []
-  gwm_status.each_with_index do |line,index|
-    (item,value) = line.split("\n")
-    value = mask_value(item,value)
-    row   = [ item, value ]
-    table.add_row(row)
-    if index < length-1
-      table.add_separator
+  if gwm_url.match(/Basic/)
+    table = Terminal::Table.new :title => "Broadband Information", :headings => [ 'Item', 'Value' ]
+    doc   =  Nokogiri::HTML(gwm_page)
+    doc.css("tr").each do |node|
+      line = node.text
+      line = line.gsub(/^\s+/,"")
+      line = line.chomp
+      gwm_status.push(line)
     end
+    length = gwm_status.length
+    gwm_status.each_with_index do |line,index|
+      (item,value) = line.split("\n")
+      value = mask_value(item,value)
+      row   = [ item, value ]
+      table.add_row(row)
+      if index < length-1
+        table.add_separator
+      end
+    end
+    puts table
+  else
+    table_no = 0
+    doc      =  Nokogiri::HTML(gwm_page)
+    doc.css("tr").each do |node|
+      if node.to_s.match(/Procedure/)
+        table_no = 1
+      end
+      if node.to_s.match(/SNR/)
+        table_no = 2
+      end
+      if node.to_s.match(/Ksym/)
+        table_no = 3
+      end
+      if table_no == 1
+        gwm_startup.push(node.to_s)
+      end
+      if table_no == 2
+        gwm_upstream.push(node.to_s)
+      end
+      if table_no == 3
+        gwm_downstream.push(node.to_s)
+      end
+    end
+    length  = gwm_startup.length
+    table_1 = Terminal::Table.new :title => "Startup Procedure", :headings => [ 'Procedure', 'Status', 'Comment' ]
+    gwm_startup.each_with_index do |line,index|
+      if line.match(/\<\/td\>/) and line.match(/[A-Z]/) and !line.match(/Procedure/)
+        row   = []
+        items = line.split("</td>")
+        items.each do |item|
+          item = item.split(/\<td\>/)[1]
+          if item
+            item = item.gsub(/^\s+/,"")
+            item = item.gsub(/\s+$/,"")
+            row.push(item)
+          end
+        end 
+        table_1.add_row(row)
+        if index < length-1
+          table_1.add_separator
+        end
+      end
+    end
+    length  = gwm_upstream.length
+    table_2 = Terminal::Table.new :title => "Downstream Bonded Channels", :headings => [ 'Lock Status', 'Modulation', 'Channel ID', 'Symbol Rate (sym/sec)', 'Frequency (Hz)', 'Power (dBmV)', 'SNR (dBmV)', 'DOCSIS Locked' ]
+    gwm_upstream.each_with_index do |line,index|
+      if line.match(/\<\/td\>/) and line.match(/[A-Z]/) and !line.match(/Lock Status/)
+        row   = []
+        items = line.split("</td>")
+        items.each do |item|
+          item = item.split(/\<td\>/)[1]
+          if item
+            row.push(item)
+          end
+        end 
+        table_2.add_row(row)
+        if index < length-1
+          table_2.add_separator
+        end
+      end
+    end
+    length  = gwm_downstream.length
+    table_3 = Terminal::Table.new :title => "Upstream Bonded Channels", :headings => [ 'Lock Status', '  Modulation', 'Channel ID', 'Symbol Rate (Ksym/sec)', 'Frequency (Hz)', 'Power (dBmV)' ]
+    gwm_downstream.each_with_index do |line,index|
+      if line.match(/\<\/td\>/) and line.match(/[A-Z]/) and !line.match(/Lock Status/)
+        row   = []
+        items = line.split("</td>")
+        items.each do |item|
+          item = item.split(/\<td\>/)[1]
+          if item
+            row.push(item)
+          end
+        end 
+        table_3.add_row(row)
+        if index < length-1
+          table_3.add_separator
+        end
+      end
+    end
+    puts table_1
+    puts
+    puts table_2
+    puts
+    puts table_3
   end
-  puts table
   return
 end
 
