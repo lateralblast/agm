@@ -20,10 +20,6 @@ test_address    = "google.com"
 $verbose        = 0
 $mask_values    = 0
 
-# Get command line options
-
-options = "bcdhlmorsvwg:u:p:t:"
-
 # Code to install a gem
 
 def install_gem(load_name,install_name)
