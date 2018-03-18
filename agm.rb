@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #
 # Name:         agm (Automate Gateway Max)
-# Version:      0.0.3
+# Version:      0.0.4
 # Release:      1
 # License:      CC-BA (Creative Commons By Attribution)
 #               http://creativecommons.org/licenses/by/4.0/legalcode
@@ -13,20 +13,6 @@
 # Packager:     Richard Spindler <richard@lateralblast.com.au>
 # Description:  Script to automate Telstra Gateway Max functions
 
-# Required modules
-
-require 'rubygems'
-require 'nokogiri'
-require 'getopt/std'
-require 'selenium-webdriver'
-require 'phantomjs'
-require 'fileutils'
-require 'terminal-table'
-require 'net/ping'
-require 'highline/import'
-
-include Net
-
 # Some defaults
 
 default_address = "192.168.1.254"
@@ -37,6 +23,52 @@ $mask_values    = 0
 # Get command line options
 
 options = "bcdhlmorsvwg:u:p:t:"
+
+# Code to install a gem
+
+def install_gem(load_name,install_name)
+  puts "Information:\tInstalling #{install_name}"
+  %x[gem install #{install_name}]
+  Gem.clear_paths
+  require "#{load_name}"
+end
+
+# Load / install additional gems
+
+begin
+  require 'getopt/std'
+rescue LoadError
+  install_gem("getopt/std","getopt")
+end
+
+begin
+  require 'highline/import'
+rescue LoadError
+  install_gem("highline/import","highline")
+end
+
+begin
+  require 'net/ping'
+rescue LoadError
+  install_gem("net/ping","net-ping")
+end
+
+[ "rubygems", "selenium-webdriver", "nokogiri", "fileutils", "terminal-table" ].each do |gem_name|
+  begin
+    require gem_name 
+  rescue LoadError
+    install_gem(gem_name,gem_name)
+  end
+end
+
+
+begin
+  require 'selenium-webdriver'
+rescue LoadError
+  install_gem("selenium-webdriver","selenium-webdriver")
+end
+
+include Net
 
 # Print the version of the script
 
@@ -117,8 +149,10 @@ end
 # Get Gateway Max URL
 
 def get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
-	cap = Selenium::WebDriver::Remote::Capabilities.phantomjs('phantomjs.page.settings.userAgent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41')
-  doc = Selenium::WebDriver.for :phantomjs, :desired_capabilities => cap
+  opt = Selenium::WebDriver::Chrome::Options.new
+  opt.add_argument('--headless')
+	cap = Selenium::WebDriver::Remote::Capabilities.chrome('chrome.page.settings.userAgent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41')
+  doc = Selenium::WebDriver.for :chrome, :options => opt, :desired_capabilities => cap
   top = "http://"+gwm_address
   doc.get(top)
   doc.find_element(:id => "login").send_keys(gwm_username)
@@ -132,8 +166,10 @@ end
 # Reboot Gateway Max
 
 def reboot_gwm(gwm_address,gwm_username,gwm_password)
-  cap = Selenium::WebDriver::Remote::Capabilities.phantomjs('phantomjs.page.settings.userAgent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41')
-  doc = Selenium::WebDriver.for :phantomjs, :desired_capabilities => cap
+  opt = Selenium::WebDriver::Chrome::Options.new
+  opt.add_argument('--headless')
+  cap = Selenium::WebDriver::Remote::Capabilities.chrome('chrome.page.settings.userAgent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41')
+  doc = Selenium::WebDriver.for :chrome, :options => opt, :desired_capabilities => cap
   top = "http://"+gwm_address
   url = "http://"+gwm_address+"/HngDiagnostics.asp"
   doc.get(top)
@@ -217,35 +253,105 @@ end
 
 def get_gwm_logs(gwm_address,gwm_username,gwm_password)
   gwm_logs = []
-  gwm_url  = "http://"+gwm_address+"/HngRgSystemLogs.asp"
+  gwm_url  = "http://"+gwm_address+"/HngEventLog.asp"
   gwm_page = get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
-  table = Terminal::Table.new :title => "System Logs", :headings => [ 'Description', 'Count', 'Last Occurence', 'Target', 'Source' ]
-  doc   =  Nokogiri::HTML(gwm_page)
-  doc.css("tr").each do |node|
-    test = node.text.gsub(/\s+/,"")
-    if !test.match(/^Description/)
-      line = node.to_s
-      (info,count,last,target,source) = line.split("</td>")
-      info   = info.split(/>/)[-1].gsub(/\n/,"")
-      count  = count.split(/>/)[-1].gsub(/\n/,"")
-      last   = last.split(/>/)[-1] .gsub(/\n/,"")
-      target = target.split(/>/)[-1].gsub(/\n/,"")
-      source = source.split(/>/)[-1].gsub(/\n/,"")
-      data   = info+"\n"+count+"\n"+last+"\n"+target+"\n"+source
-      gwm_logs.push(data)
-    end
+  if gwm_page.length < 100
+    gwm_url  = "http://"+gwm_address+"/HngRgSystemLogs.asp"
+    gwm_page = get_gwm_url(gwm_address,gwm_url,gwm_username,gwm_password)
   end
-  length = gwm_logs.length
-  row    = []
-  item   = ""
-  gwm_logs.each_with_index do |line,index|
-    (description,count,last,target,source) = line.split("\n")
-    target = mask_value(item,target)
-    source = mask_value(item,source)
-    row = [ description, count, last, target, source ]
-    table.add_row(row)
-    if index < length-1
-      table.add_separator
+  if gwm_url.match(/System/)
+    table = Terminal::Table.new :title => "System Logs", :headings => [ 'Description', 'Count', 'Last Occurence', 'Target', 'Source' ]
+    doc   =  Nokogiri::HTML(gwm_page)
+    doc.css("tr").each do |node|
+      test = node.text.gsub(/\s+/,"")
+      if !test.match(/^Description/)
+        line = node.to_s
+        if line.match(/[0-9]/)
+          puts line
+          (info,count,last,target,source) = line.split("</td>")
+          info   = info.split(/>/)[-1].gsub(/\n/,"")
+          count  = count.split(/>/)[-1].gsub(/\n/,"")
+          count  = count.gsub(/^\W/,"")
+          last   = last.split(/>/)[-1] .gsub(/\n/,"")
+          last   = last.gsub(/^\W/,"")
+          target = target.split(/>/)[-1].gsub(/\n/,"")
+          target = target.gsub(/^\W/,"")
+          source = source.split(/>/)[-1].gsub(/\n/,"")
+          source = source.gsub(/^\W/,"")
+          data   = info+"\n"+count+"\n"+last+"\n"+target+"\n"+source
+          gwm_logs.push(data)
+        end
+      end
+    end
+    length = gwm_logs.length
+    row    = []
+    item   = ""
+    gwm_logs.each_with_index do |line,index|
+      (description,count,last,target,source) = line.split("\n")
+      target = mask_value(item,target)
+      source = mask_value(item,source)
+      row = [ description, count, last, target, source ]
+      table.add_row(row)
+      if index < length-1
+        table.add_separator
+      end
+    end
+  else
+    table = Terminal::Table.new :title => "Event Logs", :headings => [ 'Time', 'Priority', 'Count', 'Description', 'CM-MAC', 'CMTS-MAC', 'CM-QOS', 'CM-VER' ]
+    doc   =  Nokogiri::HTML(gwm_page)
+    doc.css("tr").each do |node|
+      test = node.text.gsub(/\s+/,"")
+      if !test.match(/^Description/)
+        line     = node.to_s.gsub(/\n/,"")
+        count    = "1"
+        cm_mac   = "N/A"
+        cmts_mac = "N/A"
+        cm_qos   = "N/A"
+        cm_ver   = "N/A"
+        if line.match(/[0-9]/)
+          (time,priority,description) = line.split("</td>")
+          time        = time.split(/\<td\>/)[1]
+          time        = time.split()[1..-1].join(" ")
+          priority    = priority.split(/\<td\>/)[1]
+          if priority.match(/\(/)
+            (priority,count) = priority.split(/\(/)
+            count       = count.gsub(/\)/,"")
+            priority    = priority.gsub(/\W/,"")
+            description = description.split(/\<td\>/)[1]
+            if description
+              description = description.split()[1..-1].join(" ")
+            else
+              description = "N/A"
+            end
+            if description.match(/CM-MAC/)
+              (description,cm_mac,cmts_mac,cm_qos,cm_ver,tail) = description.split(";")
+              cm_mac   = cm_mac.split("=")[1]
+              cmts_mac = cmts_mac.split("=")[1]
+              cm_qos   = cm_qos.split("=")[1]
+              cm_ver   = cm_ver.split("=")[1]
+            end
+          else
+            priority    = priority.gsub(/^\W/,"")
+            description = priority
+            priority    = "Warning"
+          end
+          data = time+"\n"+priority+"\n"+count+"\n"+description+"\n"+cm_mac+"\n"+cmts_mac+"\n"+cm_qos+"\n"+cm_ver
+          gwm_logs.push(data)
+        end
+      end
+    end
+    length = gwm_logs.length
+    row    = []
+    item   = ""
+    gwm_logs.each_with_index do |line,index|
+      (time,priority,count,description,cm_mac,cmts_mac,cm_qos,cm_ver) = line.split("\n")
+      cm_mac   = mask_value(item,cm_mac)
+      cmts_mac = mask_value(item,cmts_mac)
+      row      = [ time, priority, count, description, cm_mac, cmts_mac, cm_qos, cm_ver ]
+      table.add_row(row)
+      if index < length-1
+        table.add_separator
+      end
     end
   end
   puts table
