@@ -1,7 +1,7 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env ruby -W0
 #
 # Name:         agm (Automate Gateway Max)
-# Version:      0.0.4
+# Version:      0.0.5
 # Release:      1
 # License:      CC-BA (Creative Commons By Attribution)
 #               http://creativecommons.org/licenses/by/4.0/legalcode
@@ -36,9 +36,9 @@ end
 # Load / install additional gems
 
 begin
-  require 'getopt/std'
+  require 'getopt/long'
 rescue LoadError
-  install_gem("getopt/std","getopt")
+  install_gem("getopt/long","getopt")
 end
 
 begin
@@ -61,51 +61,52 @@ end
   end
 end
 
-
-begin
-  require 'selenium-webdriver'
-rescue LoadError
-  install_gem("selenium-webdriver","selenium-webdriver")
-end
-
 include Net
 
 # Print the version of the script
 
 def print_version()
-  puts
   file_array = IO.readlines $0
   version    = file_array.grep(/^# Version/)[0].split(":")[1].gsub(/^\s+/,'').chomp
   packager   = file_array.grep(/^# Packager/)[0].split(":")[1].gsub(/^\s+/,'').chomp
   name       = file_array.grep(/^# Name/)[0].split(":")[1].gsub(/^\s+/,'').chomp
   puts name+" v. "+version+" "+packager
-  puts
 end
 
-# Print options
+# Print script usage information
 
-def print_usage(options)
-	puts
-	puts "Usage: "+$0+" -["+options+"]"
-	puts
-  puts "-V:\tDisplay version information"
-  puts "-h:\tDisplay usage information"
-	puts "-g:\tSpecify Gateway IP or hostname"
-	puts "-u:\tSpecify Gateway username"
-	puts "-p:\tSpecify Gateway password"
-	puts "-s:\tDisplay Status"
-  puts "-d:\tDisplay DHCP Leases"
-  puts "-w:\tDisplay Wireless Information"
-  puts "-b:\tDisplay Broadband Status"
-  puts "-l:\tDisplay System Logs"
-  puts "-o:\tDisplay Overview"
-  puts "-r:\tReboot Gateway"
-  puts "-c:\tCheck connectivity (reboots gateway is test site is down)"
-  puts "-t:\tTest address"
-  puts "-m:\tMask values"
-	puts "-v:\tVerbose mode"
-	puts
-	return
+def print_help()
+  switches     = []
+  long_switch  = ""
+  short_switch = ""
+  help_info    = ""
+  puts
+  puts "Usage: #{$script}"
+  puts
+  file_array  = IO.readlines $0
+  option_list = file_array.grep(/\[ "--/)
+  option_list.each do |line|
+    if !line.match(/file_array/)
+      help_info    = line.split(/# /)[1]
+      switches     = line.split(/,/)
+      long_switch  = switches[0].gsub(/\[/,"").gsub(/\s+/,"")
+      short_switch = switches[1].gsub(/\s+/,"")
+      if short_switch.match(/REQ|BOOL/)
+        short_switch = ""
+      end
+      if long_switch.gsub(/\s+/,"").length < 7
+        puts "#{long_switch},\t\t\t#{short_switch}\t#{help_info}"
+      else
+        if long_switch.gsub(/\s+/,"").length < 15
+          puts "#{long_switch},\t\t#{short_switch}\t#{help_info}"
+        else
+          puts "#{long_switch},\t#{short_switch}\t#{help_info}"
+        end
+      end
+    end
+  end
+  puts
+  return
 end
 
 # If a ~/,agmpasswd doesn't exist ask for details
@@ -509,57 +510,86 @@ def check_gwm(test_address,gwm_address,gwm_username,gwm_password)
   return
 end
 
+# Get command line arguments
+
+# Print help if specified none
+
+if !ARGV[0]
+  print_help()
+end
+
+# Try to make sure we have valid long switches
+
+ARGV[0..-1].each do |switch|
+  if switch.match(/^-[a-z,A-Z][a-z,A-Z]/)
+    handle_output("Invalid command line option: #{switch}")
+    exit
+  end
+end
+
 # Handle command line options
 
+include Getopt
+
 begin
-  opt  = Getopt::Std.getopts(options)
-  used = 0
-  options.gsub(/:/,"").each_char do |option|
-    if opt[option]
-      used = 1
-    end
-  end
-  if used == 0
-    print_usage
-  end
+  option = Long.getopts(
+     [ "--verbose",   BOOLEAN ],  # Verbose mode
+     [ "--version",   BOOLEAN ],  # Print version
+     [ "--help",      BOOLEAN ],  # Print help / usage
+     [ "--mask",      BOOLEAN ],  # Mask MAC addresses and IPs
+     [ "--status",    BOOLEAN ],  # Get status of Gateway Max
+     [ "--reboot",    BOOLEAN ],  # Reboot Gateway Max
+     [ "--check",     BOOLEAN ],  # Check network connectivity and reboot Gateway Max if down
+     [ "--text",      BOOLEAN ],  # Test address
+     [ "--dhcp",      BOOLEAN ],  # Get DHCP client information from Gateway Max
+     [ "--wireless",  BOOLEAN ],  # Get wireless information from Gateway Max
+     [ "--broadband", BOOLEAN ],  # Get broadband information from Gateway Max
+     [ "--logs",      BOOLEAN ],  # Get system log information from Gateway Max
+     [ "--overview",  BOOLEAN ],  # Get overview information from Gateway Max
+     [ "--ip",        REQUIRED ], # IP or hostname of Gateway Max
+     [ "--username",  REQUIRED ], # Username for Gateway Max
+     [ "--password",  REQUIRED ]  # Password for Gateway Max
+  )
 rescue
-  print_usage(options)
+  print_help()
   exit
 end
 
-if opt["v"]
+# Handle options
+
+if option["verbose"]
 	$verbose = 1
 end
 
-if opt["m"]
+if option["mask"]
   $mask_values = 1
 end
 
-if opt["h"]
-  print_usage(options)
+if option["help"]
+  print_help()
   exit
 end
 
-if opt["V"]
+if option["version"]
   print_version()
   exit
 end
 
-if opt["u"]
-	gwm_username = opt["u"]
+if option["username"]
+	gwm_username = option["username"]
 end
 
-if opt["p"]
-	gwm_password = opt["p"]
+if option["password"]
+	gwm_password = option["password"]
 end
 
-if opt["g"]
-	gwm_address = opt["g"]
+if option["ip"]
+	gwm_address = option["ip"]
 else
 	gwm_address = default_address
 end
 
-if !opt["u"] or !opt["p"]
+if !option["username"] or !option["password"]
   gwm_passwd_file = Dir.home+"/.agmpasswd"
   if !File.exist?(gwm_passwd_file)
     (gwm_username,gwm_password) = get_gwm_details()
@@ -569,46 +599,46 @@ if !opt["u"] or !opt["p"]
   end
 end
 
-if opt["s"]
+if option["status"]
 	get_gwm_status(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["r"]
+if option["reboot"]
   reboot_gwm(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["d"]
+if option["dhcp"]
   get_gwm_dhcp(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["w"]
+if option["wireless"]
   get_gwm_wireless(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["b"]
+if option["broadband"]
   get_gwm_broadband(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["l"]
+if option["logs"]
   get_gwm_logs(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["o"]
+if option["overview"]
   get_gwm_view(gwm_address,gwm_username,gwm_password)
   exit
 end
 
-if opt["t"]
-  test_address = opt["t"]
+if option["test"]
+  test_address = option["test"]
 end
 
-if opt["c"]
+if option["check"]
   check_gwm(test_address,gwm_address,gwm_username,gwm_password)
   exit
 end

@@ -111,19 +111,20 @@ $ agm.rb -s -g 192.168.1.254 -u admin -p blah
 Reboot gateway (default gateway address and saved username/password):
 
 ```
-$ agm.rb -r
+$ agm.rb --reboot
 ```
 
 Check gateway (default gateway address and saved username/password):
 
 ```
-$ agm.rb -c
+$ agm.rb --check
 ```
 
 Display broadband status (default gateway address and saved username/password):
 
 ```
-$ agm.rb -b
+$ agm.rb --broadband
+
 +-----------------+--------------------------+
 |           Broadband Information            |
 +-----------------+--------------------------+
@@ -150,7 +151,7 @@ $ agm.rb -b
 Display logs (default gateway address and saved username/password) with older firmware:
 
 ```
-$ agm.rb -l
+$ agm.rb --logs
 
 +-------------------------------+-------+---------------------------+-----------------------+------------------------+
 |                                                      System Logs                                                   |
@@ -222,7 +223,7 @@ $ agm.rb -l
 Display logs (default gateway address and saved username/password) with newer firmware:
 
 ```
-$ agm.rb -l
+$ agm.rb --logs
 
 +-----------------------+----------+-------+-------------------------------------------------------+-------------------+-------------------+--------+--------+
 |                                                                         Event Logs                                                                         |

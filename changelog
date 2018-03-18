@@ -7,3 +7,5 @@
 # Added password input masking
 # 0.0.4: Sun 18 Mar 2018 14:34:23 AEDT
 # Added gem module installation code, replace phatomjs with chrome headless, and updated log retrieval for newer firmware
+# 0.0.5: Sun 18 Mar 2018 17:35:07 AEDT
+# Updated command line arguments to getopt/long
